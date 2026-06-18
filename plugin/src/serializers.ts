@@ -115,6 +115,52 @@ export const getBounds = (node: any) => {
       if (parent.id) out.parentId = parent.id;
       if (parent.name) out.parentName = parent.name;
       if (parent.type) out.parentType = parent.type;
+
+      // Visual container: when this node is structurally pinned to a wide
+      // outer parent (e.g. a full-page LP at 1440) but visually sits inside
+      // a narrower wrapper (e.g. a 700px inner container), figure out which
+      // sibling-of-an-ancestor actually contains it on screen. Lets callers
+      // get distances from the *visual* parent (e.g. left 271 / right 84)
+      // even when Figma's parent/child tree doesn't reflect that.
+      try {
+        const nAbb = (node as any).absoluteBoundingBox;
+        if (nAbb && parent && Array.isArray((parent as any).children)) {
+          let best: any = null;
+          let bestArea = Infinity;
+          for (const sib of (parent as any).children) {
+            if (!sib || sib.id === node.id) continue;
+            const sAbb = sib.absoluteBoundingBox;
+            if (!sAbb) continue;
+            const contains =
+              sAbb.x <= nAbb.x &&
+              sAbb.y <= nAbb.y &&
+              sAbb.x + sAbb.width >= nAbb.x + nAbb.width &&
+              sAbb.y + sAbb.height >= nAbb.y + nAbb.height;
+            if (!contains) continue;
+            // Skip the structural parent itself (it's not a sibling here, but
+            // be defensive) and any sibling not narrower than the parent.
+            if (sAbb.width >= parent.width && sAbb.height >= parent.height) continue;
+            const area = sAbb.width * sAbb.height;
+            if (area < bestArea) {
+              bestArea = area;
+              best = sib;
+            }
+          }
+          if (best) {
+            const sAbb = best.absoluteBoundingBox;
+            out.visualContainerId = best.id;
+            out.visualContainerName = best.name;
+            out.visualContainerWidth = pixelRound(sAbb.width);
+            out.visualContainerHeight = pixelRound(sAbb.height);
+            out.visualOffsetLeft = pixelRound(nAbb.x - sAbb.x);
+            out.visualOffsetTop = pixelRound(nAbb.y - sAbb.y);
+            out.visualOffsetRight = pixelRound(sAbb.x + sAbb.width - (nAbb.x + nAbb.width));
+            out.visualOffsetBottom = pixelRound(sAbb.y + sAbb.height - (nAbb.y + nAbb.height));
+          }
+        }
+      } catch (_e) {
+        // visual-container detection is best-effort; never fail a serialize
+      }
     }
     return out;
   }
