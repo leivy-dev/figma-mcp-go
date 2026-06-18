@@ -321,6 +321,107 @@ export const serializeStyles = async (node: any) => {
     if (bv) styles.boundVariables = bv;
   }
 
+  if ("inferredVariables" in node && node.inferredVariables) {
+    styles.inferredVariables = node.inferredVariables;
+  }
+  if ("explicitVariableModes" in node && node.explicitVariableModes) {
+    const evm = node.explicitVariableModes;
+    if (evm && typeof evm === "object" && Object.keys(evm).length > 0) {
+      styles.explicitVariableModes = evm;
+    }
+  }
+
+  // ComponentNode / ComponentSetNode metadata
+  if (node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
+    if (node.description) styles.description = node.description;
+    if (node.descriptionMarkdown) styles.descriptionMarkdown = node.descriptionMarkdown;
+    if (Array.isArray(node.documentationLinks) && node.documentationLinks.length > 0) {
+      styles.documentationLinks = node.documentationLinks;
+    }
+    if (node.componentPropertyDefinitions) {
+      const defs = node.componentPropertyDefinitions;
+      if (defs && Object.keys(defs).length > 0) styles.componentPropertyDefinitions = defs;
+    }
+    if (node.variantProperties) styles.variantProperties = node.variantProperties;
+  }
+
+  // InstanceNode-specific values
+  if (node.type === "INSTANCE") {
+    if (node.componentProperties) {
+      const cp: any = {};
+      for (const [k, v] of Object.entries(node.componentProperties)) {
+        cp[k] = (v as any).value !== undefined ? (v as any).value : v;
+      }
+      if (Object.keys(cp).length > 0) styles.componentProperties = cp;
+    }
+    if (node.isExposedInstance === true) styles.isExposedInstance = true;
+    if (node.scaleFactor !== undefined && node.scaleFactor !== 1) {
+      styles.scaleFactor = node.scaleFactor;
+    }
+    if (Array.isArray(node.overrides) && node.overrides.length > 0) {
+      styles.overrides = node.overrides.map((o: any) => ({
+        id: o.id,
+        overriddenFields: o.overriddenFields,
+      }));
+    }
+  }
+
+  // Vector / Line / Star / Ellipse / Polygon network info
+  if (node.type === "VECTOR" || node.type === "STAR" || node.type === "POLYGON") {
+    if (Array.isArray(node.vectorPaths) && node.vectorPaths.length > 0) {
+      styles.vectorPaths = node.vectorPaths;
+    }
+    if (node.handleMirroring && node.handleMirroring !== "NONE") {
+      styles.handleMirroring = node.handleMirroring;
+    }
+  }
+  if (node.type === "LINE") {
+    if (Array.isArray(node.vectorPaths) && node.vectorPaths.length > 0) {
+      styles.vectorPaths = node.vectorPaths;
+    }
+  }
+  if (node.type === "ELLIPSE" && node.arcData) {
+    const a = node.arcData;
+    if (a.startingAngle !== 0 || a.endingAngle !== Math.PI * 2 || a.innerRadius !== 0) {
+      styles.arcData = a;
+    }
+  }
+  if (node.type === "POLYGON" && node.pointCount !== undefined && node.pointCount !== 3) {
+    styles.pointCount = node.pointCount;
+  }
+  if (node.type === "STAR") {
+    if (node.pointCount !== undefined && node.pointCount !== 5) styles.pointCount = node.pointCount;
+    if (node.innerRadius !== undefined && node.innerRadius !== 0.5) {
+      styles.innerRadius = node.innerRadius;
+    }
+  }
+
+  // Layout grids on FRAME/COMPONENT
+  if (Array.isArray(node.layoutGrids) && node.layoutGrids.length > 0) {
+    styles.layoutGrids = node.layoutGrids;
+  }
+  if (Array.isArray(node.guides) && node.guides.length > 0) {
+    styles.guides = node.guides;
+  }
+
+  // Cross-element relative position is NOT a Figma Plugin API primitive —
+  // it can be computed from bounds.x/y (parent-relative) plus
+  // absoluteBoundingBox (page-absolute), both of which are exposed above.
+  // We do not synthesize sibling-to-sibling deltas here; that is callsite
+  // logic, not serializer logic.
+
+  // Common base-node metadata
+  if (node.locked === true) styles.locked = true;
+  if (Array.isArray(node.exportSettings) && node.exportSettings.length > 0) {
+    styles.exportSettings = node.exportSettings;
+  }
+  if (Array.isArray(node.reactions) && node.reactions.length > 0) {
+    styles.reactions = node.reactions;
+  }
+  if (Array.isArray(node.annotations) && node.annotations.length > 0) {
+    styles.annotations = node.annotations;
+  }
+
   return styles;
 };
 
@@ -363,13 +464,31 @@ const styledTextSegmentFields = [
   "fontSize",
   "fontWeight",
   "textDecoration",
+  "textDecorationStyle",
+  "textDecorationOffset",
+  "textDecorationThickness",
+  "textDecorationColor",
+  "textDecorationSkipInk",
   "textCase",
   "lineHeight",
   "letterSpacing",
   "fills",
   "textStyleId",
   "fillStyleId",
+  "openTypeFeatures",
+  "indentation",
+  "listOptions",
+  "paragraphSpacing",
+  "paragraphIndent",
+  "listSpacing",
+  "hyperlink",
 ] as const;
+
+const serializeHyperlink = (h: any) => {
+  if (!h) return undefined;
+  if (isMixed(h)) return "mixed";
+  return { type: h.type, value: h.value };
+};
 
 const serializeStyledTextSegment = (segment: any) => {
   const fontName = segment.fontName;
@@ -398,9 +517,53 @@ const serializeStyledTextSegment = (segment: any) => {
     letterSpacing: serializeLetterSpacingExplicit(segment.letterSpacing),
     fills: serializePaints(segment.fills),
     textDecoration,
+    textDecorationStyle:
+      isMixed(segment.textDecorationStyle)
+        ? "mixed"
+        : segment.textDecorationStyle ?? undefined,
+    textDecorationOffset:
+      isMixed(segment.textDecorationOffset)
+        ? "mixed"
+        : segment.textDecorationOffset ?? undefined,
+    textDecorationThickness:
+      isMixed(segment.textDecorationThickness)
+        ? "mixed"
+        : segment.textDecorationThickness ?? undefined,
+    textDecorationColor:
+      isMixed(segment.textDecorationColor)
+        ? "mixed"
+        : segment.textDecorationColor ?? undefined,
+    textDecorationSkipInk:
+      isMixed(segment.textDecorationSkipInk)
+        ? "mixed"
+        : segment.textDecorationSkipInk ?? undefined,
     textCase,
     textStyleId: typeof segment.textStyleId === "string" ? segment.textStyleId : undefined,
     fillStyleId: typeof segment.fillStyleId === "string" ? segment.fillStyleId : undefined,
+    openTypeFeatures:
+      segment.openTypeFeatures &&
+      typeof segment.openTypeFeatures === "object" &&
+      Object.keys(segment.openTypeFeatures).length > 0
+        ? segment.openTypeFeatures
+        : undefined,
+    indentation: segment.indentation ?? undefined,
+    listOptions:
+      segment.listOptions && segment.listOptions.type !== "NONE"
+        ? segment.listOptions
+        : undefined,
+    paragraphSpacing:
+      segment.paragraphSpacing !== undefined && segment.paragraphSpacing !== 0
+        ? segment.paragraphSpacing
+        : undefined,
+    paragraphIndent:
+      segment.paragraphIndent !== undefined && segment.paragraphIndent !== 0
+        ? segment.paragraphIndent
+        : undefined,
+    listSpacing:
+      segment.listSpacing !== undefined && segment.listSpacing !== 0
+        ? segment.listSpacing
+        : undefined,
+    hyperlink: serializeHyperlink(segment.hyperlink),
   };
 };
 
@@ -486,6 +649,29 @@ export const serializeText = async (node: any, base: any) => {
         Object.keys(node.openTypeFeatures).length > 0
           ? node.openTypeFeatures
           : undefined,
+      textDecorationStyle:
+        isMixed(node.textDecorationStyle)
+          ? "mixed"
+          : node.textDecorationStyle ?? undefined,
+      textDecorationOffset:
+        isMixed(node.textDecorationOffset)
+          ? "mixed"
+          : node.textDecorationOffset ?? undefined,
+      textDecorationThickness:
+        isMixed(node.textDecorationThickness)
+          ? "mixed"
+          : node.textDecorationThickness ?? undefined,
+      textDecorationColor:
+        isMixed(node.textDecorationColor)
+          ? "mixed"
+          : node.textDecorationColor ?? undefined,
+      textDecorationSkipInk:
+        isMixed(node.textDecorationSkipInk)
+          ? "mixed"
+          : node.textDecorationSkipInk ?? undefined,
+      hyperlink: serializeHyperlink(node.hyperlink),
+      hasMissingFont: node.hasMissingFont === true ? true : undefined,
+      autoRename: node.autoRename === true ? true : undefined,
     }),
   });
 };
