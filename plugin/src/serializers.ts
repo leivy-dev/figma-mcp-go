@@ -112,6 +112,9 @@ export const getBounds = (node: any) => {
       out.offsetBottom = pixelRound(parent.height - node.y - node.height);
       out.parentWidth = pixelRound(parent.width);
       out.parentHeight = pixelRound(parent.height);
+      if (parent.id) out.parentId = parent.id;
+      if (parent.name) out.parentName = parent.name;
+      if (parent.type) out.parentType = parent.type;
     }
     return out;
   }
