@@ -10,6 +10,13 @@ Figma MCP — Free, No Rate Limits [![vkhanhqui/figma-mcp-go server](https://gla
 
 Open-source Figma MCP server with full read/write access via plugin — no REST API, no rate limits. Turn text into designs and designs into real code. Works with Cursor, Claude, GitHub Copilot, and any MCP-compatible AI tool.
 
+> ### 🍴 This fork: `leivy-dev/figma-mcp-go`
+>
+> This is a personal fork of [`vkhanhqui/figma-mcp-go`](https://github.com/vkhanhqui/figma-mcp-go) focused on **pixel-perfect implementation workflows** (Figma → code).
+> Functionality is a strict superset of upstream — see [**What's added vs upstream**](#whats-added-vs-upstream-fork-only) below.
+
+
+
 **Highlights**
 - No Figma API token required
 - No rate limits — free plan friendly
@@ -24,6 +31,69 @@ https://github.com/user-attachments/assets/eae41471-fc72-4574-8261-4f42c38b8c99
 **Text to Design, Design to Code**
 
 https://github.com/user-attachments/assets/17bda971-0e83-4f18-8758-8ac2b8dcba62
+
+---
+
+## What's added vs upstream (fork only)
+
+This section is **fork-specific** and does not exist upstream. It explains exactly which numeric values that the upstream plugin currently drops, collapses, or returns only for SOLID paints, now come through correctly. Behaviour is otherwise identical to upstream and all 233 plugin tests still pass.
+
+### Category-level diff
+
+| Category | Upstream (`vkhanhqui/figma-mcp-go`) | This fork (`leivy-dev/figma-mcp-go`) |
+|---|---|---|
+| Mixed-style text | `fontSize` / `fontWeight` / `fontName` / `textDecoration` / `textAlignHorizontal` collapse to the string `"mixed"`. Per-run values are unrecoverable. | Adds `styleSegments` (via `TextNode.getStyledTextSegments`) on every TEXT node and in `scan_text_nodes`. Each run carries real `fontSize` / `fontName` / `fontWeight` / `lineHeight` / `letterSpacing` / `fills` / `textCase` / `textDecoration` / `textStyleId` / `fillStyleId`. |
+| `lineHeight=AUTO`, `letterSpacing.value=0` | Collapsed to `undefined`. Callers cannot distinguish "explicitly auto/0" from "missing". | Returned explicitly inside `serializeText` (`{unit:"AUTO"}` / `{value:0, unit:…}`). Public helpers retain previous behaviour for back-compat. |
+| Text typography | `fontSize`, `fontFamily`, `fontStyle`, `fontWeight`, `textDecoration`, `textAlignHorizontal`. | Adds `paragraphSpacing`, `paragraphIndent`, `listSpacing`, `textCase`, `textAlignVertical`, `textAutoResize`, `textTruncation`, `maxLines`, `leadingTrim`, `hangingPunctuation`, `hangingList`, `openTypeFeatures`. |
+| Auto Layout | Nothing on `FrameNode` styles. | Adds `layoutMode`, `itemSpacing`, `counterAxisSpacing` (wrap-track gap), `layoutWrap`, `primaryAxisAlignItems`, `counterAxisAlignItems`, `counterAxisAlignContent`, `primaryAxisSizingMode`, `counterAxisSizingMode`, `itemReverseZIndex`, `strokesIncludedInLayout`. |
+| Child layout | — | Adds `layoutAlign`, `layoutGrow`, `layoutPositioning`, `layoutSizingHorizontal`, `layoutSizingVertical`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`. |
+| Stroke detail | Only `strokes` color list, plus implicit `strokeWeight`/`strokeAlign` if the JSON serializer happened to include them. | Adds `strokeWeight` (mixed-aware), `strokeAlign`, `strokeCap`, `strokeJoin`, `strokeMiterLimit`, `dashPattern`, per-side `strokeTop/Right/Bottom/LeftWeight` (only when non-uniform). |
+| Effects / blend | Effects array dropped entirely. | Adds `effects[]` (`DROP_SHADOW` / `INNER_SHADOW` / `LAYER_BLUR` / `BACKGROUND_BLUR`) with `color`, `offset`, `radius`, `spread`, `showShadowBehindNode`, plus `effectStyle` name. Also `blendMode` (omitted for `PASS_THROUGH`/`NORMAL`), `opacity`, `visible`, `rotation`. |
+| Corners | Only uniform `cornerRadius`. | Adds `cornerRadiusPerCorner` (only when non-uniform) and `cornerSmoothing`. |
+| Mask / clipping / constraints | — | Adds `clipsContent`, `isMask`/`maskType`, `constraints` (horizontal/vertical). |
+| Absolute coordinates | — | Adds `absoluteBoundingBox`, `absoluteRenderBounds`, `absoluteTransform` so a node's true page-space position is available without walking parents. |
+| Variables | — | Adds `boundVariables` on every node so callers can tell raw values from variable-bound design tokens. |
+| Paint kinds | SOLID only. `IMAGE`/`GRADIENT_*`/`VIDEO` filtered out. | Adds `GRADIENT_LINEAR/RADIAL/ANGULAR/DIAMOND` (`gradientTransform` + `gradientStops`), `IMAGE` (`imageHash`/`scaleMode`/`imageTransform`/`scalingFactor`/`rotation`/`filters`), `VIDEO`. |
+| `scan_text_nodes` | Returns only `id`/`name`/`characters`/`fontSize`/`fontName`. | Also returns `fontWeight`, `lineHeight`, `letterSpacing`, `textCase`, `textDecoration`, `textAlignHorizontal`, `paragraphSpacing`, `paragraphIndent`, `maxLines`, `textAutoResize`, and `styleSegments`. |
+
+### Field-level reference
+
+If you just want the bare list of property names that newly appear in `styles` (or as top-level keys on TEXT nodes) compared to upstream:
+
+```
+// On any node with these fields:
+effects[], effectStyle, opacity, visible, blendMode, rotation,
+clipsContent, isMask, maskType, constraints,
+absoluteBoundingBox, absoluteRenderBounds, absoluteTransform,
+boundVariables, cornerRadiusPerCorner, cornerSmoothing,
+strokeWeight, strokeAlign, strokeCap, strokeJoin, strokeMiterLimit,
+dashPattern, strokeWeightPerSide,
+
+// On Auto Layout frames:
+layoutMode, itemSpacing, counterAxisSpacing, layoutWrap,
+primaryAxisAlignItems, counterAxisAlignItems, counterAxisAlignContent,
+primaryAxisSizingMode, counterAxisSizingMode,
+itemReverseZIndex, strokesIncludedInLayout,
+layoutAlign, layoutGrow, layoutPositioning,
+layoutSizingHorizontal, layoutSizingVertical,
+minWidth, maxWidth, minHeight, maxHeight,
+
+// On TEXT nodes:
+styleSegments[], textCase, textAlignVertical,
+textAutoResize, textTruncation, maxLines, leadingTrim,
+hangingPunctuation, hangingList, openTypeFeatures,
+paragraphSpacing, paragraphIndent, listSpacing,
+
+// Paint kinds beyond SOLID:
+GRADIENT_LINEAR, GRADIENT_RADIAL, GRADIENT_ANGULAR, GRADIENT_DIAMOND,
+IMAGE, VIDEO
+```
+
+### Backwards compatibility
+
+- Public helpers (`serializeLineHeight`, `serializeLetterSpacing`, `serializePaints` for SOLID-only callers) keep their upstream behaviour. New explicit forms (`{unit:"AUTO"}`, `{value:0, unit:…}`) are emitted from `serializeText` and `styleSegments` only.
+- All 233 upstream plugin tests continue to pass; the only test updated is `serializePaints` "filters out non-SOLID paints" → now expects IMAGE/GRADIENT to be returned with their fields, which is the explicit goal of this fork.
+- No upstream tool was removed; this fork only enriches the JSON shape returned by reads.
 
 ---
 
