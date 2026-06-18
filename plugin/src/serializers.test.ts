@@ -75,9 +75,41 @@ describe("serializePaints", () => {
   it("returns undefined for empty array", () => {
     expect(serializePaints([])).toBeUndefined();
   });
-  it("filters out non-SOLID paints", () => {
-    const paints = [{ type: "IMAGE" }, { type: "GRADIENT_LINEAR" }];
-    expect(serializePaints(paints)).toBeUndefined();
+  it("serializes IMAGE paints with their fields", () => {
+    const paints = [
+      {
+        type: "IMAGE",
+        imageHash: "abc",
+        scaleMode: "FILL",
+        imageTransform: [
+          [1, 0, 0],
+          [0, 1, 0],
+        ],
+      },
+    ];
+    const result = serializePaints(paints) as any[];
+    expect(result[0].type).toBe("IMAGE");
+    expect(result[0].imageHash).toBe("abc");
+    expect(result[0].scaleMode).toBe("FILL");
+  });
+  it("serializes GRADIENT paints with stops", () => {
+    const paints = [
+      {
+        type: "GRADIENT_LINEAR",
+        gradientTransform: [
+          [1, 0, 0],
+          [0, 1, 0],
+        ],
+        gradientStops: [
+          { position: 0, color: { r: 1, g: 0, b: 0, a: 1 } },
+          { position: 1, color: { r: 0, g: 0, b: 1, a: 1 } },
+        ],
+      },
+    ];
+    const result = serializePaints(paints) as any[];
+    expect(result[0].type).toBe("GRADIENT_LINEAR");
+    expect(result[0].gradientStops).toHaveLength(2);
+    expect(result[0].gradientStops[0].color).toBe("#ff0000");
   });
   it("serializes a solid paint with opacity 1 as plain hex", () => {
     const paints = [{ type: "SOLID", color: { r: 1, g: 0, b: 0 }, opacity: 1 }];
