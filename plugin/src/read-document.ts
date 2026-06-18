@@ -1,4 +1,66 @@
-import { serializeNode, getBounds, serializeStyles, isMixed, deduplicateStyles } from "./serializers";
+import {
+  serializeNode,
+  getBounds,
+  serializeStyles,
+  isMixed,
+  deduplicateStyles,
+} from "./serializers";
+
+// styleSegments — call TextNode.getStyledTextSegments() and serialize each run.
+// Exposes per-character-range fontSize/lineHeight/letterSpacing/fontWeight/
+// fills/textCase/textDecoration/textStyleId/fillStyleId so mixed-style text
+// can return real numeric values instead of collapsing to "mixed".
+const SEG_FIELDS = [
+  "fontName",
+  "fontSize",
+  "fontWeight",
+  "textDecoration",
+  "textCase",
+  "lineHeight",
+  "letterSpacing",
+  "fills",
+  "textStyleId",
+  "fillStyleId",
+] as const;
+const lh = (v: any) => {
+  if (isMixed(v)) return "mixed";
+  if (!v) return undefined;
+  if (v.unit === "AUTO") return { unit: "AUTO" };
+  return { value: v.value, unit: v.unit };
+};
+const ls = (v: any) => {
+  if (isMixed(v)) return "mixed";
+  if (!v) return undefined;
+  return { value: v.value, unit: v.unit };
+};
+const serializeStyledSegments = (n: any) => {
+  if (typeof n?.getStyledTextSegments !== "function") return undefined;
+  return n.getStyledTextSegments(SEG_FIELDS as unknown as string[]).map((s: any) => ({
+    characters: s.characters,
+    start: s.start,
+    end: s.end,
+    fontFamily: isMixed(s.fontName) ? "mixed" : s.fontName?.family,
+    fontStyle: isMixed(s.fontName) ? "mixed" : s.fontName?.style,
+    fontSize: isMixed(s.fontSize) ? "mixed" : s.fontSize,
+    fontWeight: isMixed(s.fontWeight) ? "mixed" : s.fontWeight,
+    lineHeight: lh(s.lineHeight),
+    letterSpacing: ls(s.letterSpacing),
+    textCase:
+      isMixed(s.textCase)
+        ? "mixed"
+        : s.textCase && s.textCase !== "ORIGINAL"
+          ? s.textCase
+          : undefined,
+    textDecoration:
+      isMixed(s.textDecoration)
+        ? "mixed"
+        : s.textDecoration && s.textDecoration !== "NONE"
+          ? s.textDecoration
+          : undefined,
+    textStyleId: typeof s.textStyleId === "string" ? s.textStyleId : undefined,
+    fillStyleId: typeof s.fillStyleId === "string" ? s.fillStyleId : undefined,
+  }));
+};
 
 export const handleReadDocumentRequest = async (request: any) => {
   switch (request.type) {
@@ -360,6 +422,39 @@ export const handleReadDocumentRequest = async (request: any) => {
             characters: n.characters,
             fontSize: isMixed(n.fontSize) ? "mixed" : n.fontSize,
             fontName: isMixed(n.fontName) ? "mixed" : n.fontName,
+            fontWeight: isMixed(n.fontWeight) ? "mixed" : n.fontWeight,
+            lineHeight: lh(n.lineHeight),
+            letterSpacing: ls(n.letterSpacing),
+            textCase:
+              isMixed(n.textCase)
+                ? "mixed"
+                : n.textCase && n.textCase !== "ORIGINAL"
+                  ? n.textCase
+                  : undefined,
+            textDecoration:
+              isMixed(n.textDecoration)
+                ? "mixed"
+                : n.textDecoration && n.textDecoration !== "NONE"
+                  ? n.textDecoration
+                  : undefined,
+            textAlignHorizontal: isMixed(n.textAlignHorizontal)
+              ? "mixed"
+              : n.textAlignHorizontal,
+            paragraphSpacing:
+              n.paragraphSpacing !== undefined && n.paragraphSpacing !== 0
+                ? n.paragraphSpacing
+                : undefined,
+            paragraphIndent:
+              n.paragraphIndent !== undefined && n.paragraphIndent !== 0
+                ? n.paragraphIndent
+                : undefined,
+            maxLines:
+              n.maxLines !== undefined && n.maxLines !== null ? n.maxLines : undefined,
+            textAutoResize:
+              n.textAutoResize !== undefined && n.textAutoResize !== "NONE"
+                ? n.textAutoResize
+                : undefined,
+            styleSegments: serializeStyledSegments(n),
           });
         }
         if ("children" in n)
