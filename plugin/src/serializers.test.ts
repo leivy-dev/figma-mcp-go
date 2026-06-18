@@ -531,3 +531,343 @@ describe("serializeNode", () => {
     expect(result.children[0].id).toBe("1:4");
   });
 });
+
+// ── exhaustive field coverage ─────────────────────────────────────────────────
+
+describe("serializeStyles — full Figma field coverage (fork-only)", () => {
+  const baseFrame = {
+    id: "f1",
+    name: "Frame",
+    type: "FRAME",
+    fills: [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }],
+    strokes: [{ type: "SOLID", color: { r: 0, g: 0, b: 0 } }],
+    strokeWeight: 2,
+    strokeAlign: "INSIDE",
+    strokeCap: "ROUND",
+    strokeJoin: "BEVEL",
+    strokeMiterLimit: 8,
+    dashPattern: [4, 2],
+    strokeTopWeight: 1,
+    strokeRightWeight: 2,
+    strokeBottomWeight: 3,
+    strokeLeftWeight: 4,
+    effects: [
+      { type: "DROP_SHADOW", color: { r: 0, g: 0, b: 0, a: 0.25 }, offset: { x: 0, y: 4 }, radius: 8, spread: 0, showShadowBehindNode: false },
+      { type: "LAYER_BLUR", radius: 4 },
+    ],
+    cornerRadius: 8,
+    topLeftRadius: 4,
+    topRightRadius: 8,
+    bottomLeftRadius: 12,
+    bottomRightRadius: 16,
+    cornerSmoothing: 0.5,
+    paddingLeft: 16,
+    paddingRight: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
+    layoutMode: "HORIZONTAL",
+    itemSpacing: 12,
+    counterAxisSpacing: 8,
+    layoutWrap: "WRAP",
+    primaryAxisAlignItems: "CENTER",
+    counterAxisAlignItems: "CENTER",
+    counterAxisAlignContent: "SPACE_BETWEEN",
+    primaryAxisSizingMode: "AUTO",
+    counterAxisSizingMode: "FIXED",
+    itemReverseZIndex: true,
+    strokesIncludedInLayout: true,
+    layoutAlign: "STRETCH",
+    layoutGrow: 1,
+    layoutPositioning: "ABSOLUTE",
+    layoutSizingHorizontal: "FILL",
+    layoutSizingVertical: "HUG",
+    minWidth: 100,
+    maxWidth: 500,
+    minHeight: 50,
+    maxHeight: 200,
+    opacity: 0.75,
+    visible: false,
+    blendMode: "MULTIPLY",
+    rotation: 12.5,
+    clipsContent: true,
+    isMask: true,
+    maskType: "ALPHA",
+    constraints: { horizontal: "STRETCH", vertical: "CENTER" },
+    absoluteBoundingBox: { x: -100, y: -200, width: 300, height: 400 },
+    absoluteRenderBounds: { x: -110, y: -210, width: 320, height: 420 },
+    absoluteTransform: [[1, 0, -100], [0, 1, -200]],
+    boundVariables: { fills: [{ id: "VariableID:x", type: "VARIABLE_ALIAS" }] },
+    locked: true,
+    exportSettings: [{ format: "PNG", suffix: "@2x" }],
+    reactions: [{ trigger: { type: "ON_CLICK" }, action: { type: "NODE", navigation: "NAVIGATE" } }],
+    annotations: [{ label: "spec", labelMarkdown: "**spec**" }],
+    layoutGrids: [{ pattern: "COLUMNS", count: 12 }],
+    guides: [{ axis: "X", offset: 100 }],
+  };
+
+  it("emits every documented FrameNode style", async () => {
+    const styles = await serializeStyles(baseFrame);
+    // Auto Layout
+    expect(styles.layoutMode).toBe("HORIZONTAL");
+    expect(styles.itemSpacing).toBe(12);
+    expect(styles.counterAxisSpacing).toBe(8);
+    expect(styles.layoutWrap).toBe("WRAP");
+    expect(styles.primaryAxisAlignItems).toBe("CENTER");
+    expect(styles.counterAxisAlignItems).toBe("CENTER");
+    expect(styles.counterAxisAlignContent).toBe("SPACE_BETWEEN");
+    expect(styles.primaryAxisSizingMode).toBe("AUTO");
+    expect(styles.counterAxisSizingMode).toBe("FIXED");
+    expect(styles.itemReverseZIndex).toBe(true);
+    expect(styles.strokesIncludedInLayout).toBe(true);
+    // Child layout
+    expect(styles.layoutAlign).toBe("STRETCH");
+    expect(styles.layoutGrow).toBe(1);
+    expect(styles.layoutPositioning).toBe("ABSOLUTE");
+    expect(styles.layoutSizingHorizontal).toBe("FILL");
+    expect(styles.layoutSizingVertical).toBe("HUG");
+    expect(styles.minWidth).toBe(100);
+    expect(styles.maxWidth).toBe(500);
+    expect(styles.minHeight).toBe(50);
+    expect(styles.maxHeight).toBe(200);
+    // Stroke detail
+    expect(styles.strokeWeight).toBe(2);
+    expect(styles.strokeAlign).toBe("INSIDE");
+    expect(styles.strokeCap).toBe("ROUND");
+    expect(styles.strokeJoin).toBe("BEVEL");
+    expect(styles.strokeMiterLimit).toBe(8);
+    expect(styles.dashPattern).toEqual([4, 2]);
+    expect(styles.strokeWeightPerSide).toEqual({ top: 1, right: 2, bottom: 3, left: 4 });
+    // Effects
+    expect(Array.isArray(styles.effects)).toBe(true);
+    expect(styles.effects).toHaveLength(2);
+    expect(styles.effects[0].type).toBe("DROP_SHADOW");
+    expect(styles.effects[0].color).toBe("#000000");
+    expect(styles.effects[0].offset).toEqual({ x: 0, y: 4 });
+    expect(styles.effects[0].radius).toBe(8);
+    expect(styles.effects[1].type).toBe("LAYER_BLUR");
+    // Corners
+    expect(styles.cornerRadius).toBe(8);
+    expect(styles.cornerRadiusPerCorner).toEqual({
+      topLeft: 4, topRight: 8, bottomRight: 16, bottomLeft: 12,
+    });
+    expect(styles.cornerSmoothing).toBe(0.5);
+    // Padding
+    expect(styles.padding).toEqual({ top: 8, right: 16, bottom: 8, left: 16 });
+    // Visuals
+    expect(styles.opacity).toBe(0.75);
+    expect(styles.visible).toBe(false);
+    expect(styles.blendMode).toBe("MULTIPLY");
+    expect(styles.rotation).toBe(12.5);
+    expect(styles.clipsContent).toBe(true);
+    expect(styles.isMask).toBe(true);
+    expect(styles.maskType).toBe("ALPHA");
+    // Constraints + absolute
+    expect(styles.constraints).toEqual({ horizontal: "STRETCH", vertical: "CENTER" });
+    expect(styles.absoluteBoundingBox.width).toBe(300);
+    expect(styles.absoluteRenderBounds.width).toBe(320);
+    expect(styles.absoluteTransform).toBeDefined();
+    // Variables
+    expect(styles.boundVariables).toBeDefined();
+    expect(styles.boundVariables.fills[0].id).toBe("VariableID:x");
+    // Base metadata
+    expect(styles.locked).toBe(true);
+    expect(styles.exportSettings).toHaveLength(1);
+    expect(styles.reactions).toHaveLength(1);
+    expect(styles.annotations).toHaveLength(1);
+    // Grids
+    expect(styles.layoutGrids).toHaveLength(1);
+    expect(styles.guides).toHaveLength(1);
+  });
+
+  it("emits component metadata when type=COMPONENT", async () => {
+    const node = {
+      type: "COMPONENT",
+      description: "btn",
+      descriptionMarkdown: "**btn**",
+      documentationLinks: [{ uri: "https://example.com" }],
+      componentPropertyDefinitions: { Variant: { type: "VARIANT", defaultValue: "Primary" } },
+      variantProperties: { Variant: "Primary" },
+    };
+    const styles = await serializeStyles(node);
+    expect(styles.description).toBe("btn");
+    expect(styles.descriptionMarkdown).toBe("**btn**");
+    expect(styles.documentationLinks).toHaveLength(1);
+    expect(styles.componentPropertyDefinitions).toBeDefined();
+    expect(styles.variantProperties).toEqual({ Variant: "Primary" });
+  });
+
+  it("emits instance metadata when type=INSTANCE", async () => {
+    const node = {
+      type: "INSTANCE",
+      componentProperties: { Label: { value: "Submit", type: "TEXT" } },
+      isExposedInstance: true,
+      scaleFactor: 2,
+      overrides: [{ id: "1:1", overriddenFields: ["characters"] }],
+    };
+    const styles = await serializeStyles(node);
+    expect(styles.componentProperties).toEqual({ Label: "Submit" });
+    expect(styles.isExposedInstance).toBe(true);
+    expect(styles.scaleFactor).toBe(2);
+    expect(styles.overrides).toHaveLength(1);
+  });
+
+  it("emits vector/star/polygon geometry", async () => {
+    const vector = await serializeStyles({
+      type: "VECTOR",
+      vectorPaths: [{ windingRule: "EVENODD", data: "M0 0 L10 10" }],
+      handleMirroring: "ANGLE",
+    });
+    expect(vector.vectorPaths).toHaveLength(1);
+    expect(vector.handleMirroring).toBe("ANGLE");
+
+    const star = await serializeStyles({ type: "STAR", pointCount: 6, innerRadius: 0.3 });
+    expect(star.pointCount).toBe(6);
+    expect(star.innerRadius).toBe(0.3);
+  });
+
+  it("emits arcData on ellipses only when non-default", async () => {
+    const arc = await serializeStyles({
+      type: "ELLIPSE",
+      arcData: { startingAngle: 0, endingAngle: Math.PI, innerRadius: 0.25 },
+    });
+    expect(arc.arcData).toBeDefined();
+    const noArc = await serializeStyles({
+      type: "ELLIPSE",
+      arcData: { startingAngle: 0, endingAngle: Math.PI * 2, innerRadius: 0 },
+    });
+    expect(noArc.arcData).toBeUndefined();
+  });
+});
+
+describe("serializeText — full TextNode coverage (fork-only)", () => {
+  it("emits textDecoration detail + hyperlink + paragraph + leadingTrim + openTypeFeatures", async () => {
+    const node = {
+      fontName: { family: "Inter", style: "Bold" },
+      fontSize: 16,
+      fontWeight: 700,
+      textDecoration: "UNDERLINE",
+      textDecorationStyle: "WAVY",
+      textDecorationOffset: { value: 2, unit: "PIXELS" },
+      textDecorationThickness: { value: 1, unit: "PIXELS" },
+      textDecorationColor: { value: { r: 1, g: 0, b: 0 } },
+      textDecorationSkipInk: true,
+      textCase: "UPPER",
+      lineHeight: { value: 24, unit: "PIXELS" },
+      letterSpacing: { value: 2, unit: "PERCENT" },
+      paragraphSpacing: 12,
+      paragraphIndent: 8,
+      listSpacing: 4,
+      leadingTrim: "CAP_HEIGHT",
+      hangingPunctuation: true,
+      hangingList: true,
+      textAlignHorizontal: "CENTER",
+      textAlignVertical: "CENTER",
+      textAutoResize: "HEIGHT",
+      textTruncation: "ENDING",
+      maxLines: 3,
+      openTypeFeatures: { KERN: false, ss01: true },
+      hyperlink: { type: "URL", value: "https://example.com" },
+      hasMissingFont: false,
+      autoRename: true,
+      characters: "hi",
+    };
+    const result = await serializeText(node, { id: "t", name: "t", type: "TEXT", styles: {} });
+    const s = result.styles;
+    expect(s.textDecoration).toBe("UNDERLINE");
+    expect(s.textDecorationStyle).toBe("WAVY");
+    expect(s.textDecorationOffset).toEqual({ value: 2, unit: "PIXELS" });
+    expect(s.textDecorationThickness).toEqual({ value: 1, unit: "PIXELS" });
+    expect(s.textDecorationColor).toBeDefined();
+    expect(s.textDecorationSkipInk).toBe(true);
+    expect(s.textCase).toBe("UPPER");
+    expect(s.lineHeight).toEqual({ value: 24, unit: "PIXELS" });
+    expect(s.letterSpacing).toEqual({ value: 2, unit: "PERCENT" });
+    expect(s.paragraphSpacing).toBe(12);
+    expect(s.paragraphIndent).toBe(8);
+    expect(s.listSpacing).toBe(4);
+    expect(s.leadingTrim).toBe("CAP_HEIGHT");
+    expect(s.hangingPunctuation).toBe(true);
+    expect(s.hangingList).toBe(true);
+    expect(s.textAlignHorizontal).toBe("CENTER");
+    expect(s.textAlignVertical).toBe("CENTER");
+    expect(s.textAutoResize).toBe("HEIGHT");
+    expect(s.textTruncation).toBe("ENDING");
+    expect(s.maxLines).toBe(3);
+    expect(s.openTypeFeatures).toEqual({ KERN: false, ss01: true });
+    expect(s.hyperlink).toEqual({ type: "URL", value: "https://example.com" });
+    expect(s.autoRename).toBe(true);
+    expect(s.hasMissingFont).toBeUndefined(); // false → omitted
+  });
+
+  it("returns lineHeight={unit:'AUTO'} explicitly (not undefined)", async () => {
+    const node = {
+      fontName: { family: "Inter", style: "Regular" },
+      fontSize: 14,
+      fontWeight: 400,
+      textDecoration: "NONE",
+      lineHeight: { unit: "AUTO" },
+      letterSpacing: { value: 0, unit: "PIXELS" },
+      textAlignHorizontal: "LEFT",
+      characters: "x",
+    };
+    const result = await serializeText(node, { id: "t", name: "t", type: "TEXT", styles: {} });
+    expect(result.styles.lineHeight).toEqual({ unit: "AUTO" });
+    expect(result.styles.letterSpacing).toEqual({ value: 0, unit: "PIXELS" });
+  });
+
+  it("returns styleSegments via getStyledTextSegments mock", async () => {
+    const node = {
+      fontName: { family: "Inter", style: "Regular" },
+      fontSize: 14,
+      fontWeight: 400,
+      textDecoration: "NONE",
+      lineHeight: { unit: "AUTO" },
+      letterSpacing: { value: 0, unit: "PIXELS" },
+      textAlignHorizontal: "LEFT",
+      characters: "ab",
+      getStyledTextSegments: (_fields: string[]) => [
+        {
+          characters: "a",
+          start: 0,
+          end: 1,
+          fontName: { family: "Inter", style: "Bold" },
+          fontSize: 20,
+          fontWeight: 700,
+          lineHeight: { unit: "AUTO" },
+          letterSpacing: { value: 0, unit: "PIXELS" },
+          fills: [{ type: "SOLID", color: { r: 1, g: 0, b: 0 } }],
+          textDecoration: "UNDERLINE",
+          textDecorationStyle: "DASHED",
+          openTypeFeatures: { KERN: true },
+          paragraphSpacing: 4,
+          hyperlink: null,
+        },
+        {
+          characters: "b",
+          start: 1,
+          end: 2,
+          fontName: { family: "Inter", style: "Regular" },
+          fontSize: 14,
+          fontWeight: 400,
+          lineHeight: { value: 24, unit: "PIXELS" },
+          letterSpacing: { value: 2, unit: "PERCENT" },
+          fills: [{ type: "SOLID", color: { r: 0, g: 0, b: 1 } }],
+          textDecoration: "NONE",
+        },
+      ],
+    };
+    const result = await serializeText(node, { id: "t", name: "t", type: "TEXT", styles: {} });
+    expect(result.styleSegments).toHaveLength(2);
+    const [a, b] = result.styleSegments;
+    expect(a.fontSize).toBe(20);
+    expect(a.fontWeight).toBe(700);
+    expect(a.fills).toEqual(["#ff0000"]);
+    expect(a.textDecoration).toBe("UNDERLINE");
+    expect(a.textDecorationStyle).toBe("DASHED");
+    expect(a.openTypeFeatures).toEqual({ KERN: true });
+    expect(a.paragraphSpacing).toBe(4);
+    expect(b.lineHeight).toEqual({ value: 24, unit: "PIXELS" });
+    expect(b.letterSpacing).toEqual({ value: 2, unit: "PERCENT" });
+    expect(b.fills).toEqual(["#0000ff"]);
+  });
+});
