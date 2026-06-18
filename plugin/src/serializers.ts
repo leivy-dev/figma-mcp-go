@@ -86,12 +86,34 @@ export const serializePaints = (paints: any) => {
 
 export const getBounds = (node: any) => {
   if ("x" in node && "y" in node && "width" in node && "height" in node) {
-    return {
+    const out: any = {
       x: pixelRound(node.x),
       y: pixelRound(node.y),
       width: pixelRound(node.width),
       height: pixelRound(node.height),
     };
+    // Distance from each side of the immediate parent. Lets callers map
+    // directly to CSS `right` / `bottom`, container-query clamps, or
+    // constraints=MAX/STRETCH conversions without doing the subtraction
+    // themselves. Only emitted when the parent has a measurable width/
+    // height (e.g. a frame, group, or component — not the page node).
+    const parent = node.parent;
+    if (
+      parent &&
+      typeof parent === "object" &&
+      "width" in parent &&
+      "height" in parent &&
+      typeof parent.width === "number" &&
+      typeof parent.height === "number"
+    ) {
+      out.offsetLeft = pixelRound(node.x);
+      out.offsetTop = pixelRound(node.y);
+      out.offsetRight = pixelRound(parent.width - node.x - node.width);
+      out.offsetBottom = pixelRound(parent.height - node.y - node.height);
+      out.parentWidth = pixelRound(parent.width);
+      out.parentHeight = pixelRound(parent.height);
+    }
+    return out;
   }
 
   return undefined;

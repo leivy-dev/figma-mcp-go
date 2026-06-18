@@ -151,6 +151,29 @@ describe("getBounds", () => {
     expect(getBounds({ name: "page" })).toBeUndefined();
     expect(getBounds({ x: 0, y: 0 })).toBeUndefined();
   });
+
+  it("emits offsetRight/offsetBottom from parent dimensions", () => {
+    const node = {
+      x: 271,
+      y: 0,
+      width: 345,
+      height: 393,
+      parent: { width: 700, height: 500 },
+    };
+    const b = getBounds(node) as any;
+    expect(b.offsetLeft).toBe(271);
+    expect(b.offsetRight).toBe(700 - 271 - 345); // 84
+    expect(b.offsetTop).toBe(0);
+    expect(b.offsetBottom).toBe(500 - 0 - 393); // 107
+    expect(b.parentWidth).toBe(700);
+    expect(b.parentHeight).toBe(500);
+  });
+
+  it("omits parent-relative offsets when no parent is attached", () => {
+    const b = getBounds({ x: 0, y: 0, width: 100, height: 50 }) as any;
+    expect(b.offsetRight).toBeUndefined();
+    expect(b.parentWidth).toBeUndefined();
+  });
 });
 
 // ── serializeLineHeight ───────────────────────────────────────────────────────
